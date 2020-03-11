@@ -6,6 +6,7 @@ import time
 from Structure import Project,Record
 
 def AddSalt(ori:bytearray):
+    #从网页JS当中提取到的混淆盐值，每隔一位做一次异或运算
     Salt = '%#54$^%&SDF^A*52#@7'
     i = 0
     for ch in ori:
@@ -16,18 +17,29 @@ def AddSalt(ori:bytearray):
     return ori
 
 def EncodeData(ori:str):
+    #开头的数字是原始报文长度
     Length = len(ori)
     Message = str.encode(ori)
+    #首先用zlib进行压缩
     Compressed = bytearray(zlib.compress(Message))
+    #然后加盐混淆
     Salted = AddSalt(Compressed)
+    #最后将结果转化为base64编码
     Result = base64.b64encode(Salted).decode('utf-8')
+    #将长度头和base64编码的报文组合起来
     return str(Length) + '$' + Result
 
 def DecodeData(ori:str):
+    #分离报文长度头
+    #TODO: 增加报文头长度的验证
     Source = ori.split('$')[1]
+    #base64解码
     B64back = bytearray(base64.b64decode(Source))
+    #重新进行加盐计算，恢复原始结果
     Decompressed = AddSalt(B64back)
+    #zlib解压
     Result = zlib.decompress(Decompressed).decode('utf-8')
+    #提取json
     return json.loads(Result)
 
 def SendRequest(url:str,data:str):
@@ -48,6 +60,7 @@ def SendRequest(url:str,data:str):
     return DecodeData(ResText)
 
 def GetDetail(pro_id:int):
+    #获得项目基本信息
     Data='{{"id":"{0}","requestTime":{1},"pf":"h5"}}'.format(pro_id,int(time.time()*1000))
     Response=SendRequest('https://www.tao-ba.club/idols/detail',Data)
     return Project(int(Response['datas']['id']),
@@ -59,6 +72,7 @@ def GetDetail(pro_id:int):
     )
     
 def GetPurchaseList(pro_id:int):
+    #获得所有人购买的数据，以list形式返回
     Data='{{"ismore":false,"limit":15,"id":"{0}","offset":0,"requestTime":{1},"pf":"h5"}}'.format(pro_id,int(time.time()*1000))
     Response=SendRequest('https://www.tao-ba.club/idols/join',Data)
     Founderlist = []
